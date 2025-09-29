@@ -1,7 +1,11 @@
+// lib/tasks_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'models/task_data.dart';
-import 'Widgets/taskList.dart';
+import 'models/Task.dart';            // for TaskCategory & categoryLabel
+import 'theme_provider.dart';  // for theme toggle
+import 'Widgets/taskList.dart';       // your existing list widget
 import 'add_task_screen.dart';
 
 class TasksScreen extends StatelessWidget {
@@ -9,69 +13,99 @@ class TasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final count = context.watch<TaskData>().taskCount;
+    final taskData = context.watch<TaskData>();
+    final count = taskData.taskCount;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.lightBlueAccent,
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Todoey'),
+        actions: [
+          // Filter menu
+          Consumer<TaskData>(
+            builder: (context, data, _) {
+              return PopupMenuButton<TaskCategory>(
+                tooltip: 'Filter tasks',
+                initialValue: data.activeFilter,
+                icon: const Icon(Icons.filter_list),
+                onSelected: (c) => data.setFilter(c),
+                itemBuilder: (context) => TaskCategory.values.map((c) {
+                  final isSelected = data.activeFilter == c;
+                  return PopupMenuItem(
+                    value: c,
+                    child: Row(
+                      children: [
+                        if (isSelected) const Icon(Icons.check, size: 16),
+                        if (isSelected) const SizedBox(width: 8),
+                        Text(categoryLabel(c)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          // Theme toggle
+          IconButton(
+            tooltip: 'Toggle theme',
+            icon: const Icon(Icons.brightness_6),
+            onPressed: () => context.read<ThemeProvider>().toggle(),
+          ),
+        ],
+      ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           showModalBottomSheet(
             context: context,
-            isScrollControlled: true, // keyboard-safe
+            isScrollControlled: true,
             builder: (_) => const AddTaskScreen(),
           );
         },
-        backgroundColor: Colors.white,
-        child: const Icon(Icons.add, color: Colors.lightBlueAccent),
+        child: const Icon(Icons.add),
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Count strip under the AppBar that adapts to theme
           Container(
-            padding:
-            const EdgeInsets.only(top: 60, left: 30, bottom: 20, right: 30),
-            child: Row(
-              children: const [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 28,
-                  child: Icon(Icons.list, size: 30, color: Colors.lightBlueAccent),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Todoey',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            color: cs.primary,
             child: Text(
               '$count ${count == 1 ? "task" : "tasks"}',
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.w400),
+              style: TextStyle(
+                color: cs.onPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          // List
+
+          // Optional: show active filter chip (tap the "x" to clear)
+          if (taskData.activeFilter != TaskCategory.all)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: InputChip(
+                label: Text('Filter: ${categoryLabel(taskData.activeFilter)}'),
+                onDeleted: () =>
+                    context.read<TaskData>().setFilter(TaskCategory.all),
+              ),
+            ),
+
+          // Tasks list area (rounded surface)
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20), topRight: Radius.circular(20),
                 ),
               ),
-              child: const TaskList(), // scrollable list (ListView.builder)
+              child: const TaskList(),
             ),
           ),
         ],
